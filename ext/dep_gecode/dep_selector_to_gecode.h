@@ -22,6 +22,7 @@
 
 #include "dep_selector_to_gecode_interface.h"
 #include <iostream>	       
+#include <fstream>
 #include <vector>
 #include <set>
 
@@ -52,6 +53,36 @@ struct VersionProblemPool
     void ShowAll();
     void DeleteAll();
 };
+
+struct SolutionLog 
+{
+    SolutionLog(const char * logFileName);
+    SolutionLog(const std::string & logFileName);
+    SolutionLog(SolutionLog & s);
+    ~SolutionLog();
+
+    std::ostream & Log();
+
+    void Setup();
+
+    std::string name;
+
+    std::ofstream log;
+    bool use_std_error;
+    int count;
+};
+
+// It would be nice to use a pre-existing implementation of smart
+// pointers, but I don't want to drag in boost or C++ 2011 features
+struct SolutionLogPtr 
+{
+    
+
+    
+};
+
+
+
 
 #define DEBUG_PREFIX_LENGTH 40
 
@@ -112,6 +143,8 @@ public:
 
   static VersionProblem *InnerSolve(VersionProblem * problem, int & itercount);
   static VersionProblem *Solve(VersionProblem *problem);
+    void LogStats(std::ostream & o, bool solved, double elapsed_time, 
+                  int itercount, const Search::Statistics & final_stats);  
 
  protected:
   int instance_id;
@@ -120,6 +153,7 @@ public:
   int cur_package;
   bool dump_stats;
   bool debugLogging;
+  char logId[DEBUG_PREFIX_LENGTH];
   char debugPrefix[DEBUG_PREFIX_LENGTH];
   char outputBuffer[1024];
   bool finalized;
@@ -142,6 +176,8 @@ public:
   int * is_suspicious;
 
   VersionProblemPool *pool;
+
+  SolutionLog log;
 
   bool CheckPackageId(int id);
   void AddPackagesPreferredToBeAtLatestObjectiveFunction(const VersionProblem & best_known_solution);
