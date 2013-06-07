@@ -25,10 +25,16 @@
 
 #include "dep_selector_to_gecode.h"
 
+#include <cstdio>
 #include <limits>
 #include <iostream>
+#include <fstream>
 #include <vector>
 
+// For dir logging stuff
+#include <errno.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 
 //#define MEMORY_DEBUG
 //#define DEBUG
@@ -36,11 +42,18 @@
 //#define USE_DUMB_BRANCHING
 #define VECTOR_CONSTRAIN
 
+const int DEP_SELECTOR_LOG_PATH_LENGTH = 1024;
+const char * DEP_SELECTOR_LOG_PATH = "/tmp/dep-selector-logs";
+const int DEP_SELECTOR_LOG_DIR_PERMS = S_IRWXU | S_IRGRP | S_IXGRP;
+
+
 using namespace Gecode;
 const int VersionProblem::UNRESOLVED_VARIABLE = INT_MIN;
 const int VersionProblem::MIN_TRUST_LEVEL = 0;
 const int VersionProblem::MAX_TRUST_LEVEL = 10;
 const int VersionProblem::MAX_PREFERRED_WEIGHT = 10;
+
+
 
 VersionProblemPool::VersionProblemPool() : elems()
 { }
@@ -96,10 +109,85 @@ void VersionProblemPool::DeleteAll()
     DEBUG_STREAM << "DeleteAll ===================================================" << std::endl << std::flush;
 #endif
 }
+//////////////////////////////////////////////////////////////////////
+//
+// 
 
+SolutionLog::SolutionLog(const char * logFileName) 
+    : name(logFileName), use_std_error(true), count(0)
+{
+}
+
+SolutionLog::SolutionLog(const std::string & logFileName) 
+    : name(logFileName), use_std_error(true), count(0)
+{
+}
+
+SolutionLog::SolutionLog(SolutionLog & log) 
+    : name(log.name), use_std_error(true), count(0)
+{
+}
+
+SolutionLog::~SolutionLog()
+{
+    log.close();
+}
+
+
+bool mkdir_helper(const char * name) 
+{
+    std::cerr << "Creating " << name << std::endl << std::flush;
+    if (mkdir(name, DEP_SELECTOR_LOG_DIR_PERMS)) {
+        switch (errno) {
+        case EEXIST:
+            // Already exists, don't worry about it
+            return true;
+        default:    
+            // fail 
+            std::cerr << "Failed to create: " << name << " error " << strerror(errno) << std::endl << std::flush;
+            return false;
+        }       
+    }           
+}
+
+void SolutionLog::Setup() 
+{
+    if (!mkdir_helper(DEP_SELECTOR_LOG_PATH)) {
+        use_std_error = true;        
+        return;
+    }   
+    std::string path(DEP_SELECTOR_LOG_PATH);  
+    path += "/";
+    path += name[0];
+    path += name[1];
+    if (!mkdir_helper(path.c_str())) {
+        use_std_error = true;
+        return;
+    }
+
+    path += "/";
+    path += name;
+    std::cerr << "Logging to file " << name << std::endl << std::flush;
+    log.open(path.c_str(), std::ios::out | std::ios::app );
+    
+    use_std_error = false;
+}           
+
+std::ostream & SolutionLog::Log() 
+{
+    if (use_std_error) {
+        return std::cerr;
+    } else {
+        return log;
+    }     
+}
+
+////////////////////////////////////////////////////////////////////////
+//
+//
 int VersionProblem::instance_counter = 0;
 
-VersionProblem::VersionProblem(int packageCount, bool dumpStats, bool debug, const char * logId)
+VersionProblem::VersionProblem(int packageCount, bool dumpStats, bool debug, const char * _logId)
     : size(packageCount), version_constraint_count(0), dump_stats(dumpStats),
       debugLogging(debug), 
       finalized(false), cur_package(0), package_versions(*this, packageCount),
@@ -114,9 +202,14 @@ VersionProblem::VersionProblem(int packageCount, bool dumpStats, bool debug, con
       total_not_preferred_at_latest(*this, -packageCount, packageCount),
       preferred_at_latest_weights(new int[packageCount]),
       pool(0),
-      instance_id(instance_counter++)
+      instance_id(instance_counter++),
+      log(_logId)
 {
-    char * end = strncpy(debugPrefix, logId, DEBUG_PREFIX_LENGTH);
+    
+    log.Setup();
+
+    strncpy(logId, _logId, DEBUG_PREFIX_LENGTH);
+    char * end = strncpy(debugPrefix, _logId, DEBUG_PREFIX_LENGTH);
     strncat(end, ": ", DEBUG_PREFIX_LENGTH-(debugPrefix-end));
     for (int i = 0; i < packageCount; i++)
         {
@@ -125,10 +218,10 @@ VersionProblem::VersionProblem(int packageCount, bool dumpStats, bool debug, con
             is_suspicious[i] = 0;
         }
     if (debugLogging) {
-        DEBUG_STREAM << std::endl;
-        DEBUG_STREAM << debugPrefix << "Creating VersionProblem inst# " << instance_id << " with " << packageCount << " packages, "
+        log.Log() << std::endl;
+        log.Log() << debugPrefix << "Creating VersionProblem inst# " << instance_id << " with " << packageCount << " packages, "
                      << dumpStats << " stats, " << debug << " debug" << std::endl;
-        DEBUG_STREAM.flush();
+        log.Log().flush();
     }
 }
 
@@ -147,9 +240,11 @@ VersionProblem::VersionProblem(bool share, VersionProblem & s)
       total_not_preferred_at_latest(s.total_preferred_at_latest),
       preferred_at_latest_weights(NULL),
       pool(s.pool),
-      instance_id(s.instance_id)
+      instance_id(s.instance_id),
+      log(s.log)                                                           
 {
     strncpy(debugPrefix, s.debugPrefix, DEBUG_PREFIX_LENGTH),
+    strncpy(logId, s.logId, DEBUG_PREFIX_LENGTH);
     package_versions.update(*this, share, s.package_versions);
     disabled_package_variables.update(*this, share, s.disabled_package_variables);
     total_disabled.update(*this, share, s.total_disabled);
@@ -162,7 +257,7 @@ VersionProblem::VersionProblem(bool share, VersionProblem & s)
 
     pool->Add(this);
 #ifdef MEMORY_DEBUG
-    DEBUG_STREAM << "C VersionProblem(bool, VP)\t" << this << std::endl << std::flush;
+    log.Log() << "C VersionProblem(bool, VP)\t" << this << std::endl << std::flush;
 #endif
 }
 
@@ -177,11 +272,12 @@ VersionProblem::~VersionProblem()
     delete[] preferred_at_latest_weights;
     delete[] is_required;
     delete[] is_suspicious;
+    
     if (pool!= 0) {
         pool->Delete(this);
     }
 #ifdef MEMORY_DEBUG
-    DEBUG_STREAM << "D VersionProblem\t\t" << this << std::endl << std::flush;
+    log.Log() << "D VersionProblem\t\t" << this << std::endl << std::flush;
 #endif
 }
 
@@ -203,12 +299,12 @@ VersionProblem::AddPackage(int minVersion, int maxVersion, int currentVersion)
     }
 
     if (debugLogging) {
-        sprintf(outputBuffer, "%s DepSelector inst# %d - Adding package id %d/%d: min = %d, max = %d, current version %d",
+        sprintf(outputBuffer, "%sDepSelector inst# %d - Adding package id %d/%d: min = %d, max = %d, current version %d",
                 debugPrefix, instance_id, cur_package, size, minVersion, maxVersion, currentVersion);
-        DEBUG_STREAM << outputBuffer;
-//        DEBUG_STREAM << debugPrefix << "DepSelector inst# " << instance_id 
+        log.Log() << outputBuffer << std::endl;
+//        log.Log() << debugPrefix << "DepSelector inst# " << instance_id 
 //                     << " - Adding package id " << cur_package << '/' << size << ": min = " << minVersion << ", max = " << maxVersion << ", current version " << currentVersion << std::endl;
-        DEBUG_STREAM.flush();
+        log.Log().flush();
     }
     int index = cur_package;
     cur_package++;
@@ -233,11 +329,11 @@ VersionProblem::AddVersionConstraint(int packageId, int version,
     if (debugLogging) {
         sprintf(outputBuffer, "%sDepSelector inst# %d - Adding VC for %d @ %d depPkg %d [%d, %d]",
                 debugPrefix, instance_id, packageId, version, dependentPackageId, minDependentVersion, maxDependentVersion);
-        DEBUG_STREAM << outputBuffer;
-//        DEBUG_STREAM << debugPrefix << "DepSelector inst# " << instance_id 
+        log.Log() << outputBuffer << std::endl;
+//        log.Log() << debugPrefix << "DepSelector inst# " << instance_id 
 //                     << " - Adding VC for " << packageId << " @ " << version << " depPkg " << dependentPackageId
 //                     << " [ " << minDependentVersion << ", " << maxDependentVersion << " ]" << std::endl;
-        DEBUG_STREAM.flush();
+        log.Log().flush();
     }
 
 
@@ -264,10 +360,10 @@ VersionProblem::MarkPackageSuspicious(int packageId)
     if (debugLogging) {
         sprintf(outputBuffer, "%sDepSelector inst# %d - Marking Package Suspicious %d",
                 debugPrefix, instance_id, packageId);
-        DEBUG_STREAM << outputBuffer;
-//        DEBUG_STREAM << debugPrefix << "DepSelector inst# " << instance_id 
+        log.Log() << outputBuffer << std::endl;
+//        log.Log() << debugPrefix << "DepSelector inst# " << instance_id 
 //                     << " - Marking Package Suspicious " << packageId << std::endl;
-        DEBUG_STREAM.flush();
+        log.Log().flush();
     }
 }
 
@@ -278,9 +374,9 @@ VersionProblem::MarkPackageRequired(int packageId)
 
     if (debugLogging) {
         sprintf(outputBuffer, "%sDepSelector inst# %d - Marking Package Required %d", debugPrefix, instance_id, packageId);
-        DEBUG_STREAM << debugPrefix << "DepSelector inst# " << instance_id 
+        log.Log() << debugPrefix << "DepSelector inst# " << instance_id 
                      << " - Marking Package Required " << packageId << std::endl;
-        DEBUG_STREAM.flush();
+        log.Log().flush();
     }
 }
 
@@ -292,17 +388,17 @@ VersionProblem::MarkPackagePreferredToBeAtLatest(int packageId, int weight)
     if (debugLogging) {
         sprintf(outputBuffer, "%sDepSelector inst# %d - Marking Package Preferred Latest %d weight %d",
                 debugPrefix, instance_id, packageId, weight);
-        DEBUG_STREAM << debugPrefix << "DepSelector inst# " << instance_id 
+        log.Log() << debugPrefix << "DepSelector inst# " << instance_id 
                      << " - Marking Package Preferred Latest " << packageId << " weight " << weight << std::endl;
-        DEBUG_STREAM.flush();
+        log.Log().flush();
     }
 }
 
 void VersionProblem::Finalize()
 {
     if (debugLogging) {
-        DEBUG_STREAM << debugPrefix << "Finalization Started for inst# " << instance_id << std::endl;
-        DEBUG_STREAM.flush();
+        log.Log() << debugPrefix << "Finalization Started for inst# " << instance_id << std::endl;
+        log.Log().flush();
     }
     finalized = true;
 
@@ -311,8 +407,8 @@ void VersionProblem::Finalize()
     IntArgs disabled_required_weights(size, is_required);
     linear(*this, disabled_required_weights, disabled_package_variables,  IRT_EQ, total_required_disabled);
     if (debugLogging) {
-        DEBUG_STREAM << debugPrefix << "    disabled_required_weights:            " << disabled_required_weights << std::endl;
-        DEBUG_STREAM << debugPrefix << "    total_required_disabled:              " << total_required_disabled << std::endl;
+        log.Log() << debugPrefix << "    disabled_required_weights:            " << disabled_required_weights << std::endl;
+        log.Log() << debugPrefix << "    total_required_disabled:              " << total_required_disabled << std::endl;
     }
 
     IntArgs disabled_induced_weights(size);
@@ -322,21 +418,21 @@ void VersionProblem::Finalize()
     linear(*this, disabled_induced_weights, disabled_package_variables,  IRT_EQ, total_induced_disabled);
 
     if (debugLogging) {
-        DEBUG_STREAM << debugPrefix << "    disabled_induced_weights:             " << disabled_induced_weights << std::endl;
-        DEBUG_STREAM << debugPrefix <<"    total_induced_disabled:               " << total_induced_disabled << std::endl;
+        log.Log() << debugPrefix << "    disabled_induced_weights:             " << disabled_induced_weights << std::endl;
+        log.Log() << debugPrefix <<"    total_induced_disabled:               " << total_induced_disabled << std::endl;
     }
 
     IntArgs disabled_suspicious_weights(size, is_suspicious);
     linear(*this, disabled_suspicious_weights, disabled_package_variables,  IRT_EQ, total_suspicious_disabled);
 
     if (debugLogging) {
-        DEBUG_STREAM << debugPrefix << "    disabled_suspicious_weights:          " << disabled_suspicious_weights << std::endl;
-        DEBUG_STREAM << debugPrefix << "    total_suspicious_disabled:            " << total_suspicious_disabled << std::endl;
+        log.Log() << debugPrefix << "    disabled_suspicious_weights:          " << disabled_suspicious_weights << std::endl;
+        log.Log() << debugPrefix << "    total_suspicious_disabled:            " << total_suspicious_disabled << std::endl;
     }
 
     linear(*this, disabled_package_variables,  IRT_EQ, total_disabled);
     if (debugLogging) {
-        DEBUG_STREAM <<  debugPrefix <<"    total_disabled:                       " << total_disabled << std::endl;
+        log.Log() <<  debugPrefix <<"    total_disabled:                       " << total_disabled << std::endl;
     }
 
     // Setup computation for total_preferred_at_latest
@@ -348,8 +444,8 @@ void VersionProblem::Finalize()
     IntArgs preferred_at_latest_weights_args(size, preferred_at_latest_weights);
     linear(*this, preferred_at_latest_weights_args, at_latest, IRT_EQ, total_preferred_at_latest);
     if (debugLogging) {
-        DEBUG_STREAM << debugPrefix << "    preferred_at_latest_weights_args:     " << preferred_at_latest_weights_args << std::endl;
-        DEBUG_STREAM << debugPrefix << "    total_preferred_at_latest:            " << total_preferred_at_latest << std::endl;
+        log.Log() << debugPrefix << "    preferred_at_latest_weights_args:     " << preferred_at_latest_weights_args << std::endl;
+        log.Log() << debugPrefix << "    total_preferred_at_latest:            " << total_preferred_at_latest << std::endl;
     }
 
     // Setup computation for remaining variables
@@ -363,8 +459,8 @@ void VersionProblem::Finalize()
     }
     linear(*this, not_preferred_at_latest_weights_args, at_latest, IRT_EQ, total_not_preferred_at_latest);
     if (debugLogging) {
-        DEBUG_STREAM << debugPrefix << "    not_preferred_at_latest_weights_args: " << not_preferred_at_latest_weights_args << std::endl;
-        DEBUG_STREAM << debugPrefix << "    total_not_preferred_at_latest:        " << total_not_preferred_at_latest << std::endl;
+        log.Log() << debugPrefix << "    not_preferred_at_latest_weights_args: " << not_preferred_at_latest_weights_args << std::endl;
+        log.Log() << debugPrefix << "    total_not_preferred_at_latest:        " << total_not_preferred_at_latest << std::endl;
     }
 
 
@@ -377,8 +473,8 @@ void VersionProblem::Finalize()
 
 #ifdef USE_DUMB_BRANCHING
     if (debugLogging) {
-        DEBUG_STREAM << debugPrefix << "    Adding branching (POOR)" << std::endl;
-        DEBUG_STREAM.flush();
+        log.Log() << debugPrefix << "    Adding branching (POOR)" << std::endl;
+        log.Log().flush();
     }
     // This branching starts as far as possible from the solution, in order to exercise the optimization functions.
     branch(*this, disabled_package_variables, INT_VAR_SIZE_MIN, INT_VAL_MAX);
@@ -392,8 +488,8 @@ void VersionProblem::Finalize()
     branch(*this, total_not_preferred_at_latest, INT_VAL_MIN);
 #else // USE_DUMB_BRANCHING
     if (debugLogging) {
-        DEBUG_STREAM << debugPrefix << "    Adding branching (BEST)" << std::endl;
-        DEBUG_STREAM.flush();
+        log.Log() << debugPrefix << "    Adding branching (BEST)" << std::endl;
+        log.Log().flush();
     }
     // This branching is meant to start with most probable solution
     branch(*this, disabled_package_variables, INT_VAR_SIZE_MIN, INT_VAL_MIN);
@@ -408,8 +504,8 @@ void VersionProblem::Finalize()
 #endif // USE_DUMB_BRANCHING
 
     if (debugLogging) {
-        DEBUG_STREAM << debugPrefix << "Finalization Done" << std::endl;
-        DEBUG_STREAM.flush();
+        log.Log() << debugPrefix << "Finalization Done" << std::endl;
+        log.Log().flush();
     }
 }
 
@@ -437,7 +533,7 @@ void VersionProblem::constrain(const Space & _best_known_solution)
     int best_known_total_disabled_value = best_known_solution.total_disabled.val();
     rel(*this, total_disabled, IRT_LE, best_known_total_disabled_value);
     if (debugLogging) {
-        DEBUG_STREAM << debugPrefix;
+        log.Log() << debugPrefix;
         PrintVarAligned("Con  strain: total_disabled: ", total_disabled);
     }
 }
@@ -505,8 +601,8 @@ IntVar & VersionProblem::GetPackageVersionVar(int packageId)
         return package_versions[packageId];
     } else {
         if (debugLogging) {
-            DEBUG_STREAM << debugPrefix << "Bad package Id " << packageId << " >= " << cur_package << std::endl;
-            DEBUG_STREAM.flush();
+            log.Log() << debugPrefix << "Bad package Id " << packageId << " >= " << cur_package << std::endl;
+            log.Log().flush();
         }
         //     return 0;
     }
@@ -594,8 +690,8 @@ void VersionProblem::ConstrainVectorLessThanBest(IntVarArgs & current, IntVarArg
         // (delta < 0) <=> borrow[i+1]
         rel(*this, delta, IRT_LE, 0, borrow[i+1]);
         if (debugLogging) {
-            DEBUG_STREAM << debugPrefix << "      ConstrainVector: borrow[" << i+1 << "] " << borrow[i+1] << ",\tdelta " << delta << std::endl;
-            DEBUG_STREAM << debugPrefix << "      ConstrainVector: current[" << i << "] " << current[i] << ",\tbest_val " << best_val << std::endl;
+            log.Log() << debugPrefix << "      ConstrainVector: borrow[" << i+1 << "] " << borrow[i+1] << ",\tdelta " << delta << std::endl;
+            log.Log() << debugPrefix << "      ConstrainVector: current[" << i << "] " << current[i] << ",\tbest_val " << best_val << std::endl;
         }
     }
 
@@ -607,21 +703,21 @@ VersionProblem * VersionProblem::InnerSolve(VersionProblem * problem, int &iterc
 {
     Gecode::Support::Timer timer;
     timer.start();
-
-#ifdef MEMORY_DEBUG
-    DEBUG_STREAM << "Creating solver" << std::endl << std::flush;
+    problem->log.Setup();
+#ifdef MEMORY_DEBUG 
+    problem->log.Log() << "Creating solver" << std::endl << std::flush;
 #endif
     VersionProblem *best_solution = NULL;
     Restart<VersionProblem> solver(problem);
 
 #ifdef MEMORY_DEBUG
-    DEBUG_STREAM << "Starting Solve" << std::endl << std::flush;
+    problem->log.Log() << "Starting Solve" << std::endl << std::flush;
 #endif
 
     while (VersionProblem *solution = solver.next())
         {
 #ifdef MEMORY_DEBUG
-            DEBUG_STREAM << "Solver Next " << solution << std::endl << std::flush;
+            problem->log.Log() << "Solver Next " << solution << std::endl << std::flush;
 #endif
             if (best_solution != NULL)
                 {
@@ -630,34 +726,48 @@ VersionProblem * VersionProblem::InnerSolve(VersionProblem * problem, int &iterc
             best_solution = solution;
             ++itercount;
             if (problem->debugLogging) {
-                DEBUG_STREAM << problem->debugPrefix << "Trial Solution #" << itercount << "===============================" << std::endl;
+                problem->log.Log() << problem->debugPrefix << "Trial Solution #" << itercount << "===============================" << std::endl;
                 const Search::Statistics & stats = solver.statistics();
-                DEBUG_STREAM << problem->debugPrefix << "Solver stats: Prop:" << stats.propagate << " Fail:" << stats.fail << " Node:" << stats.node;
-                DEBUG_STREAM << " Depth:" << stats.depth << " memory:" << stats.memory << std::endl;
-                solution->Print(DEBUG_STREAM);
+                problem->log.Log() << problem->debugPrefix << "Solver stats: Prop:" << stats.propagate << " Fail:" << stats.fail << " Node:" << stats.node;
+                problem->log.Log() << " Depth:" << stats.depth << " memory:" << stats.memory << std::endl;
+                solution->Print(problem->log.Log());
             }
         }
 
     double elapsed_time = timer.stop();
 
     if (problem->dump_stats) {
-        if (problem->debugLogging) std::cerr << problem->debugPrefix;
-        std::cerr << "dep_selector solve: ";
-        std::cerr << (best_solution ? "SOLVED" : "FAILED") << " ";
-        std::cerr << problem->size << " packages, " << problem->version_constraint_count << " constraints, ";
-        std::cerr << "Time: " << elapsed_time << "ms ";
+        bool solved  = (best_solution != 0);
         const Search::Statistics & final_stats = solver.statistics();
-        std::cerr << "Stats: " << itercount << " steps, ";
-        std::cerr << final_stats.memory << " bytes, ";
-        std::cerr << final_stats.propagate << " props, " << final_stats.node << " nodes, " << final_stats.depth << " depth ";
-        std::cerr << std::endl << std::flush;
-    }
+        problem->LogStats(problem->log.Log(), solved, elapsed_time, itercount, final_stats);
+        problem->LogStats(std::cerr, solved, elapsed_time, itercount, final_stats);    
+    }    
+
 
     return best_solution;
 }
 
+void VersionProblem::LogStats(std::ostream & o, bool solved, double elapsed_time, int itercount,
+                              const Search::Statistics & final_stats) 
+{
+    if (debugLogging) o << debugPrefix;
+    o << "dep_selector solve: ";
+    o << (solved ? "SOLVED" : "FAILED") << " ";
+    o << size << " packages, " << version_constraint_count << " constraints, ";
+    o << "Time: " << elapsed_time << "ms ";
+    o << "Stats: " << itercount << " steps, ";
+    o << final_stats.memory << " bytes, ";
+    o << final_stats.propagate << " props, " << final_stats.node << " nodes, " << final_stats.depth << " depth ";       
+    o << std::endl << std::flush;
+}
+
+
+
 VersionProblem * VersionProblem::Solve(VersionProblem * problem)
 {
+
+    SolutionLog log(problem->logId);
+    log.Setup();
 
     problem->Finalize();
     problem->status();
@@ -666,15 +776,17 @@ VersionProblem * VersionProblem::Solve(VersionProblem * problem)
     problem->pool = pool;
 
     if (problem->debugLogging) {
-        DEBUG_STREAM << problem->DebugPrefix() << "      Before solve" << std::endl;
-        problem->Print(DEBUG_STREAM);
+        log.Log() << problem->DebugPrefix() << "      Before solve" << std::endl;
+        problem->Print(log.Log());
     }
     int itercount = 0;
 
     VersionProblem *best_solution = InnerSolve(problem, itercount);
 
     if (problem->debugLogging) {
-        DEBUG_STREAM << problem->DebugPrefix() << "Solver Best Solution " << best_solution << std::endl << std::flush;
+        std::cerr << "XXXXXXXXXXXXXXXXXXXXXXX " << log.use_std_error << std::endl;
+        log.Log() << problem->DebugPrefix() << "Solver Best Solution " << best_solution << std::endl << std::flush;
+        best_solution->Print(log.Log());
     }
 
     pool->Delete(best_solution);
@@ -689,17 +801,11 @@ VersionProblem * VersionProblem::Solve(VersionProblem * problem)
 //
 // Debug output
 //
-template <class T> void PrintVarAligned(const char * message, T & var)
+template <class T> void PrintVarAligned(std::ostream & log, const char * message, T & var)
 {
-    DEBUG_STREAM.width(40);
-    DEBUG_STREAM << std::left << message << var << std::endl;
-    DEBUG_STREAM.width(0);
-}
-template <class S, class T> void PrintVarAligned(const char * message, S & var1, T & var2)
-{
-    DEBUG_STREAM.width(40);
-    DEBUG_STREAM << std::left << message << var1 << " " << var2 << std::endl;
-    DEBUG_STREAM.width(0);
+    log.width(40);
+    log << std::left << message << var << std::endl;
+    log.width(0);
 }
 
 //template void PrintVarAligned<int>(const char * message, int & var);
