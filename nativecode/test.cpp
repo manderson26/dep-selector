@@ -1,13 +1,14 @@
 #include <iostream>
-#include "ext/dep_gecode/dep_selector_to_gecode_interface.h"
+#include <ext/dep_gecode/dep_selector_to_gecode_interface.h>
 
 // build: g++ test.cpp -o test ext/gecode/dep_selector_to_gecode_interface.o ext/gecode/dep_selector_to_gecode.o -lgecodesupport -lgecodekernel -lgecodeint -lgecodesearch  
 
+// g++ -g nativecode/test.cpp -o test tmp/x86_64-darwin10.8.0/dep_gecode/1.9.2/dep_selector_to_gecode.o tmp/x86_64-darwin10.8.0/dep_gecode/1.9.2/dep_selector_to_gecode_interface.o  -lgecodesupport -lgecodekernel -lgecodeint -lgecodesearch -lgecodedriver -lgecodegist -lgecodeflatzinc -lgecodeminimodel -I .
 using namespace std;
 
 
 int problem_nosol() {
- VersionProblem* problem = VersionProblemCreate(10);
+  VersionProblem* problem = VersionProblemCreate(10, true, true, "test_log");
   // package A has versions 0, 1v
   int pkg_a = AddPackage(problem, 0, 1, 1);
   // package B has versions 0, 1
@@ -72,7 +73,7 @@ int problem_nosol() {
 
 
 int problem_sol() {
-  VersionProblem* problem = VersionProblemCreate(10);
+  VersionProblem* problem = VersionProblemCreate(10, true, true, "test_log");
   // package A has versions 0, 1v
   int pkg_a = AddPackage(problem, 0, 1, 1);
   // package B has versions 0, 1
