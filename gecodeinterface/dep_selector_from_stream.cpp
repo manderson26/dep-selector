@@ -86,7 +86,7 @@ VersionProblem * dep_selector_from_stream(std::istream & f) {
           }
           return problem;
         } else {
-          cout << "ERROR0 " << endl << "package count did not match expected." << endl;
+          cout << "ERROR" << endl << "package count did not match expected." << endl;
           return problem;
         }
       } else {
