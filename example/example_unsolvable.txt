@@ -1,0 +1,73 @@
+
+Creating VersionProblem inst# 0 with 18 packages, 1 stats, 1 debug
+DepSelector inst# 0 - Adding package id 0/18: min = -1, max = 9, current version 0
+DepSelector inst# 0 - Adding package id 1/18: min = -1, max = 0, current version 0
+DepSelector inst# 0 - Adding package id 2/18: min = -1, max = 1, current version 0
+DepSelector inst# 0 - Adding package id 3/18: min = -1, max = 6, current version 0
+DepSelector inst# 0 - Adding package id 4/18: min = -1, max = 0, current version 0
+DepSelector inst# 0 - Adding VC for 3 @ 0 depPkg 4 [ 0, 0 ]
+DepSelector inst# 0 - Adding package id 5/18: min = -1, max = 1, current version 0
+DepSelector inst# 0 - Adding package id 6/18: min = -1, max = 0, current version 0
+DepSelector inst# 0 - Adding package id 7/18: min = -1, max = 0, current version 0
+DepSelector inst# 0 - Adding package id 8/18: min = -1, max = 3, current version 0
+DepSelector inst# 0 - Adding package id 9/18: min = -1, max = 1, current version 0
+DepSelector inst# 0 - Adding package id 10/18: min = -1, max = 0, current version 0
+DepSelector inst# 0 - Adding VC for 9 @ 1 depPkg 10 [ 0, 0 ]
+DepSelector inst# 0 - Adding VC for 9 @ 1 depPkg 1 [ 0, 0 ]
+DepSelector inst# 0 - Adding package id 11/18: min = -1, max = 0, current version 0
+DepSelector inst# 0 - Adding VC for 9 @ 1 depPkg 11 [ 0, 0 ]
+DepSelector inst# 0 - Adding package id 12/18: min = -1, max = 0, current version 0
+DepSelector inst# 0 - Adding VC for 9 @ 1 depPkg 12 [ 0, 0 ]
+DepSelector inst# 0 - Adding VC for 9 @ 0 depPkg 10 [ 0, 0 ]
+DepSelector inst# 0 - Adding VC for 9 @ 0 depPkg 1 [ 0, 0 ]
+DepSelector inst# 0 - Adding VC for 9 @ 0 depPkg 11 [ 0, 0 ]
+DepSelector inst# 0 - Adding VC for 9 @ 0 depPkg 12 [ 0, 0 ]
+DepSelector inst# 0 - Adding package id 13/18: min = -1, max = -1, current version 0
+DepSelector inst# 0 - Adding VC for 9 @ 0 depPkg 13 [ -2, -2 ]
+DepSelector inst# 0 - Marking Package Suspicious 13
+DepSelector inst# 0 - Adding package id 14/18: min = -1, max = 0, current version 0
+DepSelector inst# 0 - Adding package id 15/18: min = -1, max = 16, current version 0
+DepSelector inst# 0 - Adding package id 16/18: min = -1, max = 8, current version 0
+DepSelector inst# 0 - Adding package id 17/18: min = 0, max = 0, current version 0
+DepSelector inst# 0 - Marking Package Preferred Latest 0 weight 10
+DepSelector inst# 0 - Marking Package Required 0
+DepSelector inst# 0 - Adding VC for 17 @ 0 depPkg 0 [ 0, 9 ]
+DepSelector inst# 0 - Marking Package Preferred Latest 0 weight 10
+DepSelector inst# 0 - Marking Package Required 0
+DepSelector inst# 0 - Adding VC for 17 @ 0 depPkg 0 [ 0, 9 ]
+DepSelector inst# 0 - Marking Package Preferred Latest 1 weight 10
+DepSelector inst# 0 - Marking Package Required 1
+DepSelector inst# 0 - Adding VC for 17 @ 0 depPkg 1 [ 0, 0 ]
+DepSelector inst# 0 - Marking Package Preferred Latest 2 weight 10
+DepSelector inst# 0 - Marking Package Required 2
+DepSelector inst# 0 - Adding VC for 17 @ 0 depPkg 2 [ 0, 1 ]
+DepSelector inst# 0 - Marking Package Preferred Latest 3 weight 10
+DepSelector inst# 0 - Marking Package Required 3
+DepSelector inst# 0 - Adding VC for 17 @ 0 depPkg 3 [ 0, 6 ]
+DepSelector inst# 0 - Marking Package Preferred Latest 5 weight 10
+DepSelector inst# 0 - Marking Package Required 5
+DepSelector inst# 0 - Adding VC for 17 @ 0 depPkg 5 [ 0, 1 ]
+DepSelector inst# 0 - Marking Package Preferred Latest 6 weight 10
+DepSelector inst# 0 - Marking Package Required 6
+DepSelector inst# 0 - Adding VC for 17 @ 0 depPkg 6 [ 0, 0 ]
+DepSelector inst# 0 - Marking Package Preferred Latest 7 weight 10
+DepSelector inst# 0 - Marking Package Required 7
+DepSelector inst# 0 - Adding VC for 17 @ 0 depPkg 7 [ 0, 0 ]
+DepSelector inst# 0 - Marking Package Preferred Latest 8 weight 10
+DepSelector inst# 0 - Marking Package Required 8
+DepSelector inst# 0 - Adding VC for 17 @ 0 depPkg 8 [ 0, 3 ]
+DepSelector inst# 0 - Marking Package Preferred Latest 9 weight 10
+DepSelector inst# 0 - Marking Package Required 9
+DepSelector inst# 0 - Adding VC for 17 @ 0 depPkg 9 [ 0, 1 ]
+DepSelector inst# 0 - Marking Package Preferred Latest 9 weight 10
+DepSelector inst# 0 - Marking Package Required 9
+DepSelector inst# 0 - Adding VC for 17 @ 0 depPkg 9 [ 0, 1 ]
+DepSelector inst# 0 - Marking Package Preferred Latest 14 weight 10
+DepSelector inst# 0 - Marking Package Required 14
+DepSelector inst# 0 - Adding VC for 17 @ 0 depPkg 14 [ 0, 0 ]
+DepSelector inst# 0 - Marking Package Preferred Latest 15 weight 10
+DepSelector inst# 0 - Marking Package Required 15
+DepSelector inst# 0 - Adding VC for 17 @ 0 depPkg 15 [ 0, 16 ]
+DepSelector inst# 0 - Marking Package Preferred Latest 16 weight 10
+DepSelector inst# 0 - Marking Package Required 16
+DepSelector inst# 0 - Adding VC for 17 @ 0 depPkg 16 [ 99, 99 ]

@@ -1,0 +1,2 @@
+#!/bin/bash
+g++ *.cpp -lstdc++  -lgecodesearch -lgecodeint -lgecodekernel -lgecodesupport -lgecodeminimodel -o solver
