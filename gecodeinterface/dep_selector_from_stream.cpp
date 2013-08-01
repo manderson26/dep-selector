@@ -1,5 +1,6 @@
 //
 // Author:: Mark Anderson (<mark@opscode.com>)
+// Author:: Mark Paradise (<marc@opscode.com>)
 // Copyright:: Copyright (c) 2013-2013 Opscode, Inc.
 // License:: Apache License, Version 2.0
 //
@@ -35,14 +36,13 @@ bool check_state(std::istream & f);
 VersionProblem * dep_selector_from_stream(std::istream & f) {
     string cmd;
     string guid;
+    int dumpStats, debug;
     int packageCount, packageId;
-    f >> guid >> packageCount;
-    cerr << "GOT IT" << endl << flush;
+
+    f >> guid >> packageCount >> dumpStats >> debug;
     cout << "OK" << endl << flush;
 
-    // TODO dumpstats, debug must be params.
-    // VersionProblem *problem = new VersionProblem(packageCount, true, true, guid.c_str());
-    VersionProblem *problem = new VersionProblem(packageCount, false, false, guid.c_str());
+    VersionProblem *problem = new VersionProblem(packageCount, dumpStats, debug, guid.c_str());
     bool replied = false;
     while (true) {
       // TODO definitely need some better error handling throughout...
