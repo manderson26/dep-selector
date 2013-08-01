@@ -136,7 +136,7 @@ SolutionLog::~SolutionLog()
 
 bool mkdir_helper(const char * name)
 {
-    std::cerr << "Creating " << name << std::endl << std::flush;
+    // std::cerr << "Creating " << name << std::endl << std::flush;
     if (mkdir(name, DEP_SELECTOR_LOG_DIR_PERMS)) {
         switch (errno) {
         case EEXIST:
@@ -167,7 +167,7 @@ void SolutionLog::Setup()
 
     path += "/";
     path += name;
-    std::cerr << "Logging to file " << name << std::endl << std::flush;
+    // std::cerr << "Logging to file " << name << std::endl << std::flush;
     log.open(path.c_str(), std::ios::out | std::ios::app );
 
     use_std_error = false;
@@ -740,7 +740,7 @@ VersionProblem * VersionProblem::InnerSolve(VersionProblem * problem, int &iterc
         bool solved  = (best_solution != 0);
         const Search::Statistics & final_stats = solver.statistics();
         problem->LogStats(problem->log.Log(), solved, elapsed_time, itercount, final_stats);
-        problem->LogStats(std::cerr, solved, elapsed_time, itercount, final_stats);
+        //problem->LogStats(std::cerr, solved, elapsed_time, itercount, final_stats);
     }
 
 
