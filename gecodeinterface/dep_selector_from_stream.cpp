@@ -37,6 +37,9 @@ VersionProblem * dep_selector_from_stream(std::istream & f) {
     string guid;
     int packageCount, packageId;
     f >> guid >> packageCount;
+    cerr << "GOT IT" << endl << flush;
+    cout << "OK" << endl << flush;
+
     // TODO dumpstats, debug must be params.
     // VersionProblem *problem = new VersionProblem(packageCount, true, true, guid.c_str());
     VersionProblem *problem = new VersionProblem(packageCount, false, false, guid.c_str());
@@ -96,10 +99,11 @@ VersionProblem * dep_selector_from_stream(std::istream & f) {
       if (!check_state(f)) {
         return problem;
       }
-      if (replied)
+      if (replied) {
         replied = false;
-      else
+      } else {
         cout << "OK" << endl;
+      }
       cout.flush();
     }
     return problem;
