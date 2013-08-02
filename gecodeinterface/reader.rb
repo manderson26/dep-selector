@@ -15,7 +15,7 @@ ARGF.each do |line|
   case line
   when /Creating VersionProblem inst\# (\d+) with (\d+) packages, (\d+) stats, (\d+) debug/
     instance, pkg_count, stats, debug = $1,$2.to_i,$3.to_i,($4 == '0' ? false : true)
-    puts "NEW #{instance} #{pkg_count}"
+    puts "NEW #{instance} #{pkg_count} #{stats} #{debug}"
   when /DepSelector inst\# (\d+) - Adding package id (\d+)\/(\d+): min = (-?\d+), max = (-?\d+), current version (-?\d+)/
     instance, pkg_id, pkg_count, min, max, cur = [$1,$2,$3,$4,$5,$6].map { |x| x.to_i }
     puts "P #{min} #{max} #{cur}"
