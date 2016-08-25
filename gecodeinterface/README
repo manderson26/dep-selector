@@ -1,0 +1,18 @@
+This will likely be getting split out into its own project, as currently
+it only shares dependencies on the contents of the 'examples' directory.
+
+This project creates a standalone executeable 'solver' that interfaces with
+gecode and provides a simple REPL interface.
+
+To build, ensure you have the gecode dev libs installed, then run
+
+./quickbuild
+
+(Makefile coming when we split this out...)
+
+The file 'reader.rb' parses the contents of examples in ../examples
+and formats them in a way that "solver" can recognize.
+
+Sample usage:
+./reader.rb ../examples/example_1.txt | ./solver
+
